@@ -4,6 +4,7 @@
   "description": "`@ds/watchify` 和 `@ds/build` 分别在开发环境与生产环境做 js 的编译合并压缩处理。",
   "main": "index.js",
   "files": [
+    "augment-app.js",
     "server.js",
     "index.js"
   ],

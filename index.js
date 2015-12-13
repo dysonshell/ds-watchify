@@ -48,7 +48,7 @@ var PORT = Number(process.env.PORT) || Number(config.port) || 4000;
 
 var globalLibsPath = path.join(APP_ROOT, DSC, 'global-libs.json');
 if (!fs.existsSync(globalLibsPath)) {
-    fs.writeSync(globalLibsPath, '[]', 'utf-8');
+    fs.writeFileSync(globalLibsPath, '[]', 'utf-8');
 }
 var globalLibs = JSON.parse(fs.readFileSync(globalLibsPath, 'utf-8'));
 var globalExternals = globalLibs.map(function (x) {
@@ -57,7 +57,7 @@ var globalExternals = globalLibs.map(function (x) {
 
 var globalPreloadPath = path.join(APP_ROOT, DSC, 'global-preload.js');
 if (!fs.existsSync(globalPreloadPath)) {
-    fs.writeSync(globalPreloadPath, '', 'utf-8');
+    fs.writeFileSync(globalPreloadPath, '', 'utf-8');
 }
 
 var writeFile = Promise.promisify(fs.writeFile);
@@ -124,7 +124,7 @@ function notify () {
     changingDeps = {};
 }
 
-watchify = function (b, opts) {
+function watchify(b, opts) {
     if (!opts) opts = {};
 
     var wopts = {persistent: true};
