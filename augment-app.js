@@ -1,7 +1,9 @@
 'use strict';
 
+var assert = require('assert');
 var config = require('config');
 assert(config.dsAppRoot);
+var httpProxy = require('http-proxy');
 
 // config
 var APP_ROOT = config.dsAppRoot;
@@ -9,11 +11,11 @@ var DSC = config.dsComponentPrefix || 'dsc';
 var DSCns = DSC.replace(/^\/+/, '').replace(/\/+$/, '');
 DSC = DSCns + '/';
 
-module.exports = function (app, watchifyServerPort) {
+module.exports = function (app, appPort) {
     if (app.get('env') !== 'development') {
         return;
     }
-    var target = 'http://127.0.0.1:' + watchifyServerPort + '/node_modules';
+    var target = 'http://127.0.0.1:' + (appPort + 500) + '/node_modules';
     console.log('js entry files proxy target: ', target);
     var proxy = httpProxy.createProxyServer({
         target: target,
@@ -22,10 +24,10 @@ module.exports = function (app, watchifyServerPort) {
         return proxy.web(req, res, null, next);
     });
     var proxySockjs = httpProxy.createProxyServer({
-        target: 'http://127.0.0.1:' + watchifyServerPort,
+        target: 'http://127.0.0.1:' + (appPort + 500),
     });
     var proxyWS = httpProxy.createProxyServer({
-        target: 'ws://127.0.0.1:' + watchifyServerPort,
+        target: 'ws://127.0.0.1:' + (appPort + 500),
         ws: true,
     });
     app.use(function (req, res, next) {

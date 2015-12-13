@@ -44,7 +44,6 @@ var APP_ROOT = config.dsAppRoot;
 var DSC = config.dsComponentPrefix || 'dsc';
 var DSCns = DSC.replace(/^\/+/, '').replace(/\/+$/, '');
 DSC = DSCns + '/';
-var PORT = Number(process.env.PORT) || Number(config.port) || 4000;
 
 var globalLibsPath = path.join(APP_ROOT, DSC, 'global-libs.json');
 if (!fs.existsSync(globalLibsPath)) {
@@ -389,11 +388,9 @@ var initRouter = co.wrap(function *() {
     return router;
 });
 
-var watchifyServer = co.wrap(function *() {
+var watchifyServer = co.wrap(function *(port) {
     var watchifyApp = require('express')();
     var server = http.createServer(watchifyApp);
-    var that = this;
-    var opts = this.opts;
     (function(sock) {
         sock.installHandlers(server, {prefix: '/_sockjs'});
         sock.on('connection', function (conn) {
@@ -439,14 +436,14 @@ var watchifyServer = co.wrap(function *() {
     watchifyApp.set('etag', false);
     watchifyApp.use(require('morgan')());
     watchifyApp.use('/node_modules', middleware());
-    var address = yield Promise.promisify(server.listen, {context: server})();
+    var address = yield Promise.promisify(server.listen, {context: server})(port + 500);
     console.log("watchify listening at http://127.0.0.1:%d", address.port);
     co(function *() {
         // 遇到过主进程没有了而 watchify 的进程还在的情况，所以在这里设置一个心跳检查
         yield sleep(4000);
         while (true) {
             yield sleep(1000);
-            yield isTcpOn({host: '127.0.0.1', port: PORT});
+            yield isTcpOn({host: '127.0.0.1', port: port});
         }
     }).catch(function (e) {
         process.nextTick(function () {
