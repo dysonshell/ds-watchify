@@ -1,0 +1,62 @@
+{
+  "name": "ds-watchify",
+  "version": "0.0.0",
+  "description": "`@ds/watchify` 和 `@ds/build` 分别在开发环境与生产环境做 js 的编译合并压缩处理。",
+  "main": "index.js",
+  "files": [
+    "server.js",
+    "index.js"
+  ],
+  "scripts": {
+    "test": "tape"
+  },
+  "repository": {
+    "type": "git",
+    "url": "ssh://git@gitlab.creditcloud.com:10022/ccfe/ds-watchify.git"
+  },
+  "keywords": [
+    "watch"
+  ],
+  "author": {
+    "name": "undoZen",
+    "email": "opensource@undozen.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "tape": "^4.0.0"
+  },
+  "peerDependencies": {
+    "ds-brequire": "^1",
+    "browserify": "^12"
+  },
+  "dependencies": {
+    "anymatch": "^1",
+    "babel-connect": "^6",
+    "babelify": "^6",
+    "bluebird": "^3.0.6",
+    "browser-pack": "^6",
+    "browserify": "^12",
+    "browserify-common-prelude": "^0.5",
+    "chokidar": "^1",
+    "co": "^4",
+    "conext": "^1",
+    "config": "^1",
+    "dep-graph": "^1",
+    "ds-brequire": "^1",
+    "ds-nrequire": "^1",
+    "es3ify-safe": "^0.1.3",
+    "eventemitter3": "^1",
+    "express": "^4",
+    "glob": "^6",
+    "grtrequire": "^1",
+    "http-proxy": "^1",
+    "is-tcp-on": "^0.1.2",
+    "lodash": "^3.10.1",
+    "mkdirp": "^0.5",
+    "morgan": "^1",
+    "partialify": "^3",
+    "sockjs": "^0.3",
+    "through2": "^2",
+    "xtend": "^4"
+  }
+}
