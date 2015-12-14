@@ -450,12 +450,24 @@ var watchifyServer = co.wrap(function *(port) {
     yield Promise.promisify(server.listen, {context: server})(port + 500);
     var address = server.address();
     console.log("watchify listening at http://127.0.0.1:%d", address.port);
+    var errCounter = 0;
+    function checkApp() {
+        return isTcpOn({host: '127.0.0.1', port: port}).catch(function () {
+            return false;
+        });
+    }
     co(function *() {
         // 遇到过主进程没有了而 watchify 的进程还在的情况，所以在这里设置一个心跳检查
         yield sleep(4000);
         while (true) {
             yield sleep(1000);
-            yield isTcpOn({host: '127.0.0.1', port: port});
+            var checkResult = yield checkApp();
+            if (!checkResult && ++errCounter > 4) {
+                // 连续 5 秒的检测都失败才退出，因为可能是正好在重启
+                throw new Error('app server down');
+            } else {
+                errCounter = 0;
+            }
         }
     }).catch(function (e) {
         process.nextTick(function () {
