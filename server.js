@@ -16,4 +16,6 @@ if (!port) {
 }
 GLOBAL.APP_ROOT = process.env.APP_ROOT;
 require('ds-nrequire').watchRequiredFilesToRestart = true;
-require('./index')(port).listen();
+require('./index')(port).catch(function (err) {
+    console.error(err.stack);
+});

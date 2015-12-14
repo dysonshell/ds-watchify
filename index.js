@@ -231,6 +231,9 @@ var bundle = co.wrap(function* (fullPath, opts) {
         b.add(fullPath);
     }
     var src = yield bundlePromise(b);
+    if (!fullPath) {
+        return src;
+    }
     var tmpSavePath = getTmpSavePath(fullPath);
     yield Promise.promisify(mkdirp)(path.dirname(tmpSavePath));
     yield writeFile(tmpSavePath, src);
@@ -281,9 +284,6 @@ function onUpdate(updatedFiles) {
     })
     .forEach(function (filePath) {
         bundle(filePath)
-        .then(function (src) {
-            src = src.toString();
-        })
         .catch(bundleErrStr);
     })
 }
@@ -297,19 +297,19 @@ function getTmpSavePath(filePath) {
 
 var initRouter = co.wrap(function *() {
     var router = this._router = express.Router();
-    var globalSrc = yield bundle(false, {
+    var globalSrc = (yield bundle(false, {
         watch: false,
         alterb: function (b) {
             globalLibs.forEach(function (x) {
                 b.require(x[0], {expose: x[1] || x[0]});
             });
         },
-    });
+    })).toString();
     var commonSrc = bcp + '({});';
-    var preloadSrc = yield bundle(globalPreloadPath, {
+    var preloadSrc = (yield bundle(globalPreloadPath, {
         watch: false,
         preludeSync: true,
-    });
+    })).toString();
     var src = {
         global: preloadSrc + ';' + globalSrc,
         'global-common': preloadSrc + ';' + globalSrc.trim().replace(/\[\]\);$/, '[false]);') + ';' + commonSrc,
@@ -382,9 +382,16 @@ var initRouter = co.wrap(function *() {
     // router.use(express.static(path.join(APP_ROOT, 'node_modules')));
     router.use('/-', express.static(APP_ROOT));
     // watch all templates
-    glob.sync(DSC + '*/partials/**/*.html', {cwd: APP_ROOT}).forEach(function (partial) {
-        b.add(partial);
+    yield bundle(false, {
+        watch: true,
+        alterb: function (b) {
+            glob.sync(DSC + '*/partials/**/*.html', {cwd: APP_ROOT}).forEach(function (partial) {
+                b.add(partial);
+            });
+        },
     });
+
+    console.log('watchify router inited');
     return router;
 });
 
@@ -406,7 +413,7 @@ var watchifyServer = co.wrap(function *(port) {
                 // tmplee.emit(filePath, '<p>hello</p>');
                 fs.readFile(fullPath, 'utf-8', function (err, template) {
                     if (!err) {
-                        that.bundle(filePath);
+                        bundle(filePath);
                         write(filePath, template);
                         var notify = write.bind(null, filePath);
                         tmplee.addListener(filePath, notify);
@@ -435,8 +442,9 @@ var watchifyServer = co.wrap(function *(port) {
     })))
     watchifyApp.set('etag', false);
     watchifyApp.use(require('morgan')());
-    watchifyApp.use('/node_modules', middleware());
-    var address = yield Promise.promisify(server.listen, {context: server})(port + 500);
+    watchifyApp.use('/node_modules', yield initRouter());
+    yield Promise.promisify(server.listen, {context: server})(port + 500);
+    var address = server.address();
     console.log("watchify listening at http://127.0.0.1:%d", address.port);
     co(function *() {
         // 遇到过主进程没有了而 watchify 的进程还在的情况，所以在这里设置一个心跳检查
