@@ -92,7 +92,7 @@ var args = {
     cache: this.cache,
     packageCache: this.packageCache,
     fullPaths: true,
-    detectGlobals: false,
+    // detectGlobals: false,
 };
 var chokidarWatched = {};
 
@@ -188,7 +188,8 @@ function watchify(b, opts) {
     return b;
 };
 
-function alterPipeline(b, preludeSync) {
+function alterPipeline(b, opts) {
+    opts = opts || {};
     var relative = getRelativePath.bind(null, APP_ROOT);
     b
         .transform(grtrequire)
@@ -211,9 +212,11 @@ function alterPipeline(b, preludeSync) {
         }), bpack(xtend(args, {
             raw: true,
             hasExports: false,
-            prelude: bcp + (!preludeSync ? '' : ';BCP.preludeSync'),
+            prelude: bcp + (!opts.preludeSync ? '' : ';BCP.preludeSync'),
         })));
-    b.external(globalExternals)
+    if (!opts.global) {
+        b.external(globalExternals);
+    }
     return b;
 }
 
@@ -223,7 +226,7 @@ var bundle = co.wrap(function* (fullPath, opts) {
     if (opts.watch !== false) {
         watchify(b, {poll: require('os').type() === 'Darwin' ? false : 500});
     }
-    alterPipeline(b, opts.preludeSync);
+    alterPipeline(b, opts);
     if (typeof opts.alterb === 'function') {
         opts.alterb(b);
     }
@@ -298,6 +301,7 @@ function getTmpSavePath(filePath) {
 var initRouter = co.wrap(function *() {
     var router = this._router = express.Router();
     var globalSrc = (yield bundle(false, {
+        global: true,
         watch: false,
         alterb: function (b) {
             globalLibs.forEach(function (x) {
@@ -305,14 +309,14 @@ var initRouter = co.wrap(function *() {
             });
         },
     })).toString();
-    var commonSrc = bcp + '({});';
+    var commonSrc = '\n;' + bcp + '({});';
     var preloadSrc = (yield bundle(globalPreloadPath, {
         watch: false,
         preludeSync: true,
     })).toString();
     var src = {
         global: preloadSrc + ';' + globalSrc,
-        'global-common': preloadSrc + ';' + globalSrc.trim().replace(/\[\]\);$/, '[false]);') + ';' + commonSrc,
+        'global-common': preloadSrc + ';' + globalSrc.trim().replace(/\[\]\)([\r\n\s]+\/\/#\s+sourceMapping)/, '[false])$1') + ';' + commonSrc,
         common: commonSrc,
     };
     var globalJsEtag = JSON.stringify(Date.now());
@@ -320,7 +324,7 @@ var initRouter = co.wrap(function *() {
         res.type('js');
         res.set('cache-control', 'public,max-age=' + (60 * 60 * 24));
         res.set('etag', globalJsEtag);
-        if (req.header('if-none-match') === globalJsSrc) {
+        if (req.header('if-none-match') === globalJsEtag) {
             res.statusCode = 304;
             res.end();
             return;
