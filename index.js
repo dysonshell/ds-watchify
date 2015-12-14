@@ -22,7 +22,7 @@ var babelify = require('babelify');
 var babelConnect = require('babel-connect');
 var grtrequire = require('grtrequire/watch');
 var es3ify = require('es3ify-safe');
-var bcp = fs.readFileSync(require.resolve('browserify-common-prelude/dist/bcp.min.js'), 'utf-8');
+var bcp = fs.readFileSync(require.resolve('browserify-common-prelude/dist/bcp.js'), 'utf-8');
 var httpProxy = require('http-proxy');
 var express = require('express');
 var conext = require('conext');
@@ -315,8 +315,8 @@ var initRouter = co.wrap(function *() {
         preludeSync: true,
     })).toString();
     var src = {
-        global: preloadSrc + ';' + globalSrc,
-        'global-common': preloadSrc + ';' + globalSrc.trim().replace(/\[\]\)([\r\n\s]+\/\/#\s+sourceMapping)/, '[false])$1') + ';' + commonSrc,
+        global: (preloadSrc + ';' + globalSrc).replace(/[\r\n]\/\/#\s+sourceMapping[^\r\n]*/g, ''),
+        'global-common': (preloadSrc + ';' + globalSrc.replace(/\[\]\)([\r\n\s]+\/\/#\s+sourceMapping)/, '[false])$1') + ';' + commonSrc).replace(/[\r\n]\/\/#\s+sourceMapping[^\r\n]*/g, ''),
         common: commonSrc,
     };
     var globalJsEtag = JSON.stringify(Date.now());

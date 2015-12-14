@@ -34,7 +34,10 @@ module.exports = function (app, appPort) {
         if (!req.url.match(/^\/_sockjs/)) {
             return next();
         }
-        return proxySockjs.web(req, res);
+        return proxySockjs.web(req, res, null, function (err, req, res) {
+            res.statusCode = 500;
+            res.end();
+        });
     });
     if (app.httpServer) {
         app.httpServer.on('upgrade', function (req, socket, head) {
