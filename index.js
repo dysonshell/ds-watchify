@@ -478,3 +478,4 @@ var watchifyServer = co.wrap(function *(port) {
 
 exports = module.exports = watchifyServer;
 exports.augmentApp = require('./augment-app');
+exports.bundle = bundle;
