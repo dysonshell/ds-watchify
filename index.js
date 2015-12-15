@@ -290,6 +290,24 @@ function onUpdate(updatedFiles) {
         .catch(bundleErrStr);
     })
 }
+function bundleErrStr(err) {
+    var errPrint = [];
+    errPrint.push('------------------------------------------------------------');
+    if (err.filename) {
+        errPrint.push('error on file ' + err.filename);
+    }
+    if (err.description) {
+        errPrint.push(err.description);
+    }
+    if (err.filename && err.lineNumber && err.column) {
+        errPrint.push(err.filename +':'+ err.lineNumber +':'+ err.column);
+    }
+    errPrint.push('------------------------------------------------------------');
+    errPrint.push(err.stack || err.toString());
+    var errStr = errPrint.join('\n');
+    console.log(errStr);
+    return errStr;
+}
 function getTmpSavePath(filePath) {
     var relPath = path.relative(APP_ROOT, filePath);
     var reqId = relPath.replace('node_modules/@' + DSC, DSC);
@@ -365,24 +383,6 @@ var initRouter = co.wrap(function *() {
             return res.send('/*\n' + errStr + '\n */\n');
         });
     });
-    function bundleErrStr(err) {
-        var errPrint = [];
-        errPrint.push('------------------------------------------------------------');
-        if (err.filename) {
-            errPrint.push('error on file ' + err.filename);
-        }
-        if (err.description) {
-            errPrint.push(err.description);
-        }
-        if (err.filename && err.lineNumber && err.column) {
-            errPrint.push(err.filename +':'+ err.lineNumber +':'+ err.column);
-        }
-        errPrint.push('------------------------------------------------------------');
-        errPrint.push(err.stack || err.toString());
-        var errStr = errPrint.join('\n');
-        console.log(errStr);
-        return errStr;
-    }
     // router.use(express.static(path.join(APP_ROOT, 'node_modules')));
     router.use('/-', express.static(APP_ROOT));
     // watch all templates
