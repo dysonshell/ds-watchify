@@ -45,7 +45,7 @@ var DSC = config.dsComponentPrefix || 'dsc';
 var DSCns = DSC.replace(/^\/+/, '').replace(/\/+$/, '');
 DSC = DSCns + '/';
 
-var globalLibsPath = path.join(APP_ROOT, DSC, 'global-libs.json');
+var globalLibsPath = path.join(APP_ROOT, DSC, 'libs.json');
 if (!fs.existsSync(globalLibsPath)) {
     fs.writeFileSync(globalLibsPath, '[]', 'utf-8');
 }
@@ -54,7 +54,7 @@ var globalExternals = globalLibs.map(function (x) {
     return x[1] || x[0];
 }).filter(Boolean);
 
-var globalPreloadPath = path.join(APP_ROOT, DSC, 'global-preload.js');
+var globalPreloadPath = path.join(APP_ROOT, DSC, 'preload.js');
 if (!fs.existsSync(globalPreloadPath)) {
     fs.writeFileSync(globalPreloadPath, '', 'utf-8');
 }
