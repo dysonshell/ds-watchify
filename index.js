@@ -194,8 +194,10 @@ function alterPipeline(b, opts) {
     b
         .transform(grtrequire)
         .transform(partialify)
-        .transform(babelify.configure(config.babelifyOptions || config.babelOptions || {}))
-        .transform(es3ify);
+        .transform(babelify.configure(config.babelifyOptions || config.babelOptions || {}));
+    if (config.dsSupportIE8) {
+        b.transform(es3ify, {global: true});
+    }
     b.pipeline.get('dedupe').splice(0, 1); // arguments[4] bug
     b.pipeline.get('pack')
         .splice(0, 1, through.obj(function (row, enc, next) {
