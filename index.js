@@ -22,7 +22,9 @@ var babelify = require('babelify');
 var babelConnect = require('babel-connect');
 var grtrequire = require('grtrequire/watch');
 var es3ify = require('es3ify-safe');
-var bcp = fs.readFileSync(require.resolve('browserify-common-prelude/dist/bcp.js'), 'utf-8');
+var bcpPath = require.resolve('browserify-common-prelude/dist/bcp.js');
+var bcp = fs.readFileSync(bcpPath, 'utf-8');
+
 var httpProxy = require('http-proxy');
 var express = require('express');
 var conext = require('conext');
@@ -215,6 +217,7 @@ function alterPipeline(b, opts) {
             raw: true,
             hasExports: false,
             prelude: bcp + (!opts.preludeSync ? '' : ';BCP.preludeSync'),
+            preludePath: bcpPath,
         })));
     if (!opts.global) {
         b.external(globalExternals);
@@ -240,8 +243,11 @@ var bundle = co.wrap(function* (fullPath, opts) {
         return src;
     }
     var tmpSavePath = getTmpSavePath(fullPath);
-    yield Promise.promisify(mkdirp)(path.dirname(tmpSavePath));
-    yield writeFile(tmpSavePath, src);
+    if (tmpSavePath) {
+        yield Promise.promisify(mkdirp)(path.dirname(tmpSavePath));
+        console.log('write template file:', tmpSavePath);
+        yield writeFile(tmpSavePath, src);
+    }
     return src;
 });
 
@@ -312,7 +318,10 @@ function bundleErrStr(err) {
 }
 function getTmpSavePath(filePath) {
     var relPath = path.relative(APP_ROOT, filePath);
-    var reqId = relPath.replace('node_modules/@' + DSC, DSC);
+    var reqId = relPath.replace(/^node_modules\/@/, '');
+    if (reqId.indexOf(DSC) !== 0) {
+        return false;
+    }
     var tmpSaveFile = reqId.replace(DSC, DSC + '.tmp/');
     var tmpSavePath = path.join(APP_ROOT, tmpSaveFile);
     return tmpSavePath;
