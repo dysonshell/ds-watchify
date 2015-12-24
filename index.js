@@ -7,14 +7,13 @@ var assert = require('assert');
 
 var config = require('config');
 assert(config.dsAppRoot);
-require('ds-brequire');
+require('ds-require');
 var Promise = require('bluebird');
 var _ = require('lodash');
 var browserify = require('browserify');
 var bpack = require('browser-pack');
 var through = require('through2');
 var glob = require('glob');
-var co = require('co');
 var isTcpOn = require('is-tcp-on');
 var xtend = require('xtend');
 var partialify = require('partialify');
@@ -27,7 +26,6 @@ var bcp = fs.readFileSync(bcpPath, 'utf-8');
 
 var httpProxy = require('http-proxy');
 var express = require('express');
-var conext = require('conext');
 var DepGraph = require('dep-graph');
 var mkdirp = require('mkdirp');
 var crypto = require('crypto');
@@ -73,12 +71,18 @@ function sleep(ms) {
         setTimeout(resolve, ms);
     });
 }
-function ensureLeadingSlash(filePath) {
-    return filePath.replace(/^([^\/])/, '/$1');
+function alterPath(filePath) {
+    return filePath
+        .replace(/^([^\/])/, '/$1')
+        .replace(/^\/.tmp\//, '/')
+        ;
 }
 
-function getRelativePath(basedir, filePath) {
-    return ensureLeadingSlash(path.relative(basedir, filePath));
+function getRelativePath(filePath) {
+    return alterPath(
+        path.relative(
+            path.dirname(APP_ROOT), // original APP_ROOT
+            filePath));
 }
 
 var WATCHIFY_DELAY = 100;
@@ -91,6 +95,7 @@ var pending = false;
 
 var args = {
     basedir: APP_ROOT,
+    paths: ['.'],
     cache: this.cache,
     packageCache: this.packageCache,
     fullPaths: true,
@@ -192,11 +197,12 @@ function watchify(b, opts) {
 
 function alterPipeline(b, opts) {
     opts = opts || {};
-    var relative = getRelativePath.bind(null, APP_ROOT);
     b
         .transform(grtrequire)
         .transform(partialify)
-        .transform(babelify.configure(config.babelifyOptions || config.babelOptions || {}));
+        .transform(babelify.configure({
+            presets: [require('babel-preset-dysonshell')],
+        }), {global: true})
     if (config.dsSupportIE8) {
         b.transform(es3ify, {global: true});
     }
@@ -204,12 +210,12 @@ function alterPipeline(b, opts) {
     b.pipeline.get('pack')
         .splice(0, 1, through.obj(function (row, enc, next) {
             if (row.id[0] === '/') {
-                row.id = relative(row.file);
+                row.id = getRelativePath(row.file);
             }
             row.sourceFile = path.join('/-', row.id);
             Object.keys(row.deps)
                 .forEach(function (key) {
-                    row.deps[key] = relative(row.deps[key]);
+                    row.deps[key] = getRelativePath(row.deps[key]);
                 });
             this.push(row);
             next();
@@ -225,7 +231,7 @@ function alterPipeline(b, opts) {
     return b;
 }
 
-var bundle = co.wrap(function* (fullPath, opts) {
+var bundle = Promise.coroutine(function* (fullPath, opts) {
     opts = opts || {};
     var b = browserify(args);
     if (opts.watch !== false) {
@@ -317,8 +323,7 @@ function bundleErrStr(err) {
     return errStr;
 }
 function getTmpSavePath(filePath) {
-    var relPath = path.relative(APP_ROOT, filePath);
-    var reqId = relPath.replace(/^node_modules\/@/, '');
+    var reqId = path.relative(APP_ROOT, filePath);
     if (reqId.indexOf(DSC) !== 0) {
         return false;
     }
@@ -327,9 +332,9 @@ function getTmpSavePath(filePath) {
     return tmpSavePath;
 }
 
-var initRouter = co.wrap(function *() {
-    var router = this._router = express.Router();
-    var globalSrc = (yield bundle(false, {
+var initRouter = Promise.coroutine(function *() {
+    var router = express.Router();
+    var globalSrcPromise = bundle(false, {
         global: true,
         watch: false,
         alterb: function (b) {
@@ -337,7 +342,13 @@ var initRouter = co.wrap(function *() {
                 b.require(x[0], {expose: x[1] || x[0]});
             });
         },
-    })).toString();
+    })
+    var globalSrc = (yield globalSrcPromise).toString();
+    router.use(function (req, res, next) {
+        globalSrcPromise.then(function () {
+            next();
+        });
+    });
     var commonSrc = '\n;' + bcp + '({});';
     var preloadSrc = (yield bundle(globalPreloadPath, {
         watch: false,
@@ -361,14 +372,14 @@ var initRouter = co.wrap(function *() {
         res.send(src[req.params[0]]);
     });
     var babelMiddleware = babelConnect({
-        options: config.babelifyOptions || config.babelOptions || {},
+        options: { presets: [require('babel-preset-dysonshell')], },
         src: path.join(APP_ROOT),
         dest: path.join(APP_ROOT, DSC, '.tmp', '_babel_cache'),
     });
     router.get(new RegExp('^\\\/'+DSCns+'\\\/[^\\\/]+\\\/js\\\/.*\\.js$'), function (req, res, next) {
         var filePath;
         try {
-            filePath = require.resolve(req.path.replace(/^\/(node_modules\/)?@?/, ''));
+            filePath = require.resolve(req.path.replace(/^\/+/, ''));
             req.url = '/' + path.relative(APP_ROOT, filePath);
         } catch (e) {}
         if (!filePath) {
@@ -410,7 +421,7 @@ var initRouter = co.wrap(function *() {
     return router;
 });
 
-var watchifyServer = co.wrap(function *(port) {
+var watchifyServer = Promise.coroutine(function *(port) {
     var watchifyApp = require('express')();
     var server = http.createServer(watchifyApp);
     (function(sock) {
@@ -467,7 +478,7 @@ var watchifyServer = co.wrap(function *(port) {
             return false;
         });
     }
-    co(function *() {
+    Promise.coroutine(function *() {
         // 遇到过主进程没有了而 watchify 的进程还在的情况，所以在这里设置一个心跳检查
         yield sleep(4000);
         while (true) {
@@ -480,7 +491,7 @@ var watchifyServer = co.wrap(function *(port) {
                 errCounter = 0;
             }
         }
-    }).catch(function (e) {
+    })().catch(function (e) {
         process.nextTick(function () {
             process.kill(process.pid, 'SIGTERM'); // 如果主网站不行了，给自己发 kill 信号
         });
