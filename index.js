@@ -79,9 +79,10 @@ function alterPath(filePath) {
 }
 
 function getRelativePath(filePath) {
+    var tmpSubfixReg = /\/\.tmp\/?/;
     return alterPath(
         path.relative(
-            path.dirname(APP_ROOT), // original APP_ROOT
+            APP_ROOT.match(tmpSubfixReg) ? APP_ROOT.replace(tmpSubfixReg, '') : APP_ROOT, // original APP_ROOT
             filePath));
 }
 
